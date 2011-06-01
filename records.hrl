@@ -1,0 +1,1 @@
+-record(mapper_task,{id,time,duration,job_id,node}).
