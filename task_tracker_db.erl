@@ -9,7 +9,7 @@
 
 -record(mapper_task,{id,time,duration,job_id}).
 
-% API
+%% API
 save_mapper_task(Id,Time,Duration,JobId) ->
   global:send(?SERVER, {save_map_task,Id,Time,Duration,JobId}).
 
