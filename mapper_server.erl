@@ -1,28 +1,25 @@
 -module(mapper_server).
 -behaviour(gen_server).
 
--export([start_link/4,stop/0,create_mappers/4,start_mapping/1,gather/3]).
+-export([start_link/5,stop/0,create_mappers/5,start_mapping/1,gather/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
 -import(utils).
 
 %%%%%%%%%% API
 
-start_link(ContextPid,ReducerPids,RecordReader,MapFunction)->
-    start_link(ContextPid,ReducerPids,RecordReader,MapFunction,{verbose,false}).
+%start_link(ContextPid,ReducerPids,RecordReader,MapFunction)->
+%    start_link(ContextPid,ReducerPids,RecordReader,MapFunction,_).
 
-start_link(ContextPid,ReducerPids,RecordReader,MapFunction,Options)->
-     gen_server:start_link(?MODULE, [{ContextPid,ReducerPids,RecordReader,MapFunction,Options}], []).
+start_link(ContextPid,ReducerPids,RecordReader,MapFunction,JobTracker)->
+     gen_server:start_link(?MODULE, [{ContextPid,ReducerPids,RecordReader,MapFunction,JobTracker}], []).
 
 stop()->
     ok.
 
-create_mappers(ContextPid,ReducerPids,RecordReaders,MapFunction)->
-    create_mappers(ContextPid,ReducerPids,RecordReaders,MapFunction,{verbose,false}).
-
-create_mappers(ContextPid,ReducerPids,RecordReaders,MapFunction,Options)->
+create_mappers(ContextPid,ReducerPids,RecordReaders,MapFunction,JobTracker)->
     lists:map(fun(RecordReader)->
-		      {ok,Pid} = start_link(ContextPid,ReducerPids,RecordReader,MapFunction,Options),
+		      {ok,Pid} = start_link(ContextPid,ReducerPids,RecordReader,MapFunction,JobTracker),
 		      Pid
 	      end
 	      ,RecordReaders).
@@ -31,24 +28,21 @@ start_mapping(Mappers)->
     lists:foreach(fun(Mapper)->spawn(fun()-> gen_server:call(Mapper,  {map}) end) end, Mappers).
 
 gather(0,L,_) -> L;
-gather(N,_,Options) ->
-    {verbose,Verbose} = Options,
+gather(N,_,JobTracker) ->
     receive 
 	{done}->
-	    utils:log_if(Verbose,"~p maps left",[N-1]),
-	    gather(N-1,[],Options)
+	    reporter:report_progress(JobTracker,"~p maps left",[N-1]),
+	    gather(N-1,[],JobTracker)
     end.
 
 %%%%%%%%%%% GEN_ SERVER
 
 init(Args) ->
-    %% pg2:create(dmr),
-    %% pg2:join(dmr, self()),
     {ok, Args}.
 
 handle_call({map}, _From, State) ->
-    [{ContextPid,ReducerPids,RecordReader,MapFunction,Options}] = State,
-    map_task(ContextPid,ReducerPids,MapFunction,RecordReader,Options),
+    [{ContextPid,ReducerPids,RecordReader,MapFunction,JobTracker}] = State,
+    map_task(ContextPid,ReducerPids,MapFunction,RecordReader,JobTracker),
     {reply, ok,State}.
 
 handle_cast(_Request, _State) ->
@@ -65,12 +59,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %%%%%%%%%% Actual work
-map_task(ContextPid,ReducerPids,MapFunction,RecordReader,Options)->
-    {verbose,Verbose} = Options,
+map_task(ContextPid,ReducerPids,MapFunction,RecordReader,JobTracker)->
+    reporter:report_progress(JobTracker,"~p Mapping",[self()]),
 
-    utils:log_if(Verbose,"~p Mapping",[self()]),
-
-    Ts = erlang:now(),
+%    Ts = erlang:now(),
     RecordsMapped = RecordReader(MapFunction), 
     FlattenRecord = lists:flatten(RecordsMapped),
     GroupedByReducerId = utils:tree_group_by(

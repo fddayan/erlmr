@@ -4,7 +4,7 @@
 -import(record_reader,[list_record_reader/1,list_splitter/1,file_rr/1]).
 -import(mapper_server).
 -import(reducer_server).
--import(task_tracker_server).
+-import(task_tracker).
 
 
 mapreduce(Map,Reduce,RecordReaders)->
@@ -129,7 +129,7 @@ compile()->
     compile:file(record_reader),
     compile:file(mapper_server),
     compile:file(reducer_server),
-    compile:file(task_tracker_server),
+    compile:file(task_tracker),
     ok.
 
     

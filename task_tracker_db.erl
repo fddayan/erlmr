@@ -28,10 +28,10 @@ find_mapper_tasks()->
     end.
     
 start() ->
-  server_util:start(?SERVER, {task_tracker_db, run, [true]}).
+  utils:start(?SERVER, {task_tracker_db, run, [true]}).
 
 stop() ->
-  server_util:stop(?SERVER).
+  utils:stop(?SERVER).
 
 
 % SERVER

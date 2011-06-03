@@ -4,27 +4,27 @@
 -import(record_reader,[list_record_reader/1,list_splitter/1,file_rr/1]).
 -import(mapper_server).
 -import(reducer_server).
--import(task_tracker_server).
+-import(task_tracker).
 
 start()->
     net_adm:world(),
-    task_tracker_server:start_link().
+    task_tracker:start_link().
 
 main()->
-    task_tracker_server:start_link(),
+    task_tracker:start_link(),
 
     Map = fun(Value)-> [{Value,Value}] end,
     Reduce = fun(Key,Values)-> {Key,lists:sum(Values)} end,
     RecordReaders = lists:map(fun(L)-> record_reader:list_record_iterator(L) end,record_reader:list_splitter([1,1,2,2,3,3,3,3,4,4,5,5])),
 
-    ReducersResult = task_tracker_server:mapreduce(Map,Reduce,RecordReaders),
+    ReducersResult = task_tracker:mapreduce(Map,Reduce,RecordReaders),
 
     SortedResult = lists:sort(lists:flatten(ReducersResult)),
     io:format("~p~n",[SortedResult]),
     SortedResult =:= [{1,2},{2,4},{3,12},{4,8},{5,10}].
 
 wc()->
-    task_tracker_server:start_link(),
+    task_tracker:start_link(),
 
     Map = fun(Data)-> 
 		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"), 
@@ -33,12 +33,14 @@ wc()->
     Reduce = fun(Key,Values)->
 		     {Key,lists:sum(Values)}
 	     end,
-    Result = task_tracker_server:mapreduce(Map,Reduce,[record_reader:file_rr("mr.erl")]),
+    Result = task_tracker:mapreduce(Map,Reduce,[record_reader:file_rr("mr.erl")]),
     SortedResult = lists:sort(lists:flatten(Result)),
     io:format("Words ~p ~n",[length(SortedResult)]).
 
 dir_wc(Dir,Pattern)->
-    task_tracker_server:start_link(),
+    JobTracker = job_tracker:start_link(),
+
+    io:format("JobTracker ~p~n",[JobTracker]),
 
     Map = fun(Data)-> 
 		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"), 
@@ -47,7 +49,12 @@ dir_wc(Dir,Pattern)->
     Reduce = fun(Key,Values)->
 		     {Key,lists:sum(Values)}
 	     end,
+
     RecordReaders = record_reader:create_record_readers(fun record_reader:file_rr/1,record_reader:directory_splitter(Dir,Pattern)),
-    Result = task_tracker_server:mapreduce(Map,Reduce,RecordReaders,{verbose,true}),
+    Result = task_tracker:mapreduce(Map,Reduce,RecordReaders,JobTracker),
+
     SortedResult = lists:sort(lists:flatten(Result)),
+    
     io:format("Words ~p ~n",[length(SortedResult)]).
+
+    

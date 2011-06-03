@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2,create_reducers/3,start_reducing/1,gather/3]).
+-export([start_link/3,create_reducers/4,start_reducing/1,gather/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,terminate/2, code_change/3]).
@@ -29,15 +29,13 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(ReduceFunction,ContextPid) ->
-    start_link(ReduceFunction,ContextPid,{verbose,false}).
- 
-start_link(ReduceFunction,ContextPid,Options) ->
-    gen_server:start_link(?MODULE, [{gb_trees:empty(),ReduceFunction,ContextPid,Options}], []).
 
-create_reducers(ContextPid,N,ReduceFunction)->
+start_link(JobTracker,ContextPid,ReduceFunction) ->
+    gen_server:start_link(?MODULE, [{gb_trees:empty(),ReduceFunction,ContextPid,JobTracker}], []).
+
+create_reducers(JobTracker,ContextPid,N,ReduceFunction)->
     lists:map(fun(_)->
-		     {ok,Pid} = start_link(ReduceFunction,ContextPid),
+		     {ok,Pid} = start_link(JobTracker,ContextPid,ReduceFunction),
 		     Pid
 	      end
 	      ,lists:seq(1,N)).
@@ -46,12 +44,11 @@ start_reducing(Reducers)->
     lists:foreach(fun(Reducer)-> spawn(fun()-> gen_server:call(Reducer,{reduce}) end) end, Reducers).
     
 gather(0,L,_) -> L;
-gather(N, L,Options) ->
-    {verbose,Verbose} = Options,
+gather(N, L,JobTracker) ->
     receive
 	{reducer_out,Out}->
-	    utils:log_if(Verbose,"~p reducers left",[N-1]),
-	    gather(N-1,[Out|L],Options)
+	    reporter:report_progress(JobTracker,"~p reducers left",[N-1]),
+	    gather(N-1,[Out|L],JobTracker)
     end.
 
 %%%===================================================================
@@ -87,16 +84,15 @@ init(Args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({collect,FromMapperPid,List},_From,State) -> % List = [{key,value}]
-    [{Tree,Reduce,Context,Options}] = State,
+    [{Tree,Reduce,Context,JobTracker}] = State,
     NewTree = utils:tree_group_by(List,fun({K,V})-> {K,V} end,Tree),
     FromMapperPid ! ok,
-    {reply,ok,[{NewTree,Reduce,Context,Options}]};
+    {reply,ok,[{NewTree,Reduce,Context,JobTracker}]};
 
 handle_call({reduce},_From,State) ->
-    [{Tree,Reduce,Context,Options}] = State,
-    {verbose,Verbose} = Options,
+    [{Tree,Reduce,Context,JobTracker}] = State,
 
-    utils:log_if(Verbose,"~p Reducing ~n",[self()]),
+    reporter:report_progress(JobTracker,"~p Reducing",[self()]),
 
     ReducerOut = utils:tree_collect(Reduce,Tree),
     Context ! {reducer_out,ReducerOut}, % ReducerOut = [{Key,Value},...]
