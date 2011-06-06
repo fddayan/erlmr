@@ -9,7 +9,7 @@
 task_tracker_mapreduce_with_directory_test()->
     task_tracker:start(),
     JobTracker = job_tracker:start_link(),
-    Dir = "./etc/",
+    Dir = "../resources/",
     Pattern = "(pg3160.txt|pg35934.txt)",    
 
     io:format("JobTracker ~p~n",[JobTracker]),
