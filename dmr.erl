@@ -8,10 +8,10 @@
 
 start()->
     net_adm:world(),
-    task_tracker:start_link().
+    task_tracker:start().
 
 main()->
-    task_tracker:start_link(),
+    task_tracker:start(),
 
     Map = fun(Value)-> [{Value,Value}] end,
     Reduce = fun(Key,Values)-> {Key,lists:sum(Values)} end,
@@ -24,7 +24,7 @@ main()->
     SortedResult =:= [{1,2},{2,4},{3,12},{4,8},{5,10}].
 
 wc()->
-    task_tracker:start_link(),
+    task_tracker:start(),
 
     Map = fun(Data)-> 
 		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"), 
