@@ -7,7 +7,7 @@
 %%% Created : 24 May 2011 by FEDERICO DAYAN <>
 %%%-------------------------------------------------------------------
 -module(task_tracker).
- 
+
 -behaviour(gen_server).
 
 %% API
@@ -16,7 +16,7 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE).  
+-define(SERVER, ?MODULE).
 
 -import(utils).
 -import(reporter).
@@ -31,7 +31,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @spec start() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start()->
@@ -39,7 +39,7 @@ start()->
 
 start(Options) ->
     {verbose,Verbose} = Options,
-    case gen_server:start_link({local, ?SERVER}, ?MODULE, [Options], []) of 
+    case gen_server:start_link({local, ?SERVER}, ?MODULE, [Options], []) of
 	{ok,Pid}->
 	    utils:log_if(Verbose,"~nTask Tracker ~p started. Nodes: ~p",[Pid,get_nodes()]),
 	    Pid;
@@ -56,15 +56,15 @@ print_history()->
 
 create_mapper(Node,Context,Reducers,Map,RecordReader,JobTracker)->
        gen_server:call(Node,{create_mapper,Context,Reducers,Map,RecordReader,JobTracker}).
-    
+
 create_reducer(Node,JobTracker,Context,Reduce)->
     ReducerPid = gen_server:call(Node,{create_reducer,JobTracker,Context,Reduce}),
     ReducerPid.
 
 mapreduce(Map,Reduce,RecordReaders,JobTracker)->
-    Context = self(),  
+    Context = self(),
     Nodes = get_nodes(),
-    
+
     distributed_mr(Context,Nodes,Map,Reduce,RecordReaders,JobTracker).
 
 distributed_mr(Context,Nodes,Map,Reduce,RecordReaders,JobTracker)->
@@ -72,7 +72,7 @@ distributed_mr(Context,Nodes,Map,Reduce,RecordReaders,JobTracker)->
 
     Reducers = lists:map(fun(Node)-> create_reducer(Node,JobTracker,Context,Reduce) end, Nodes),
     Mappers = utils:roundrobin_map(
-		fun(RecordReader,Node)-> 
+		fun(RecordReader,Node)->
 			create_mapper(Node,Context,Reducers,Map,RecordReader,JobTracker)
 		end
 		,RecordReaders,Nodes),
@@ -126,6 +126,13 @@ init(Args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({create_mapper,Context,Reducers,Map,RecordReader,JobTracker}, _From, State) ->
+    case task_scheluder:slot_status() of
+        open ->
+            mapper_server:start_link();
+        full ->
+            task_scheluder:schelude(mapper_server,start_link,[])
+     end,
+
     {ok,Pid} = mapper_server:start_link(Context,Reducers,RecordReader,Map,JobTracker),
     reporter:report_progress(JobTracker,"~p Creating mapper ~p",[self(),Pid]),
     {reply, Pid, State};
@@ -190,7 +197,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 get_nodes()->
-    case pg2:get_members(task_tracker) of 
+    case pg2:get_members(task_tracker) of
 	{error,{no_such_group,_Name}}-> throw({task_trakcer,{not_running}});
 	Pids-> Pids
     end.

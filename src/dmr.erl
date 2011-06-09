@@ -1,5 +1,15 @@
+%%%-------------------------------------------------------------------
+%%% @author FEDERICO DAYAN <>
+%%% @copyright (C) 2011, FEDERICO DAYAN
+%%% @doc
+%%%
+%%% @end
+%%% Created : 23 May 2011 by FEDERICO DAYAN <>
+%%%-------------------------------------------------------------------
 -module (dmr).
+
 -compile(export_all).
+
 -import(utils).
 -import(record_reader,[list_record_reader/1,list_splitter/1,file_rr/1]).
 -import(mapper_server).
@@ -26,8 +36,8 @@ main()->
 wc()->
     task_tracker:start(),
 
-    Map = fun(Data)-> 
-		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"), 
+    Map = fun(Data)->
+		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"),
 		  lists:map(fun(V)-> {V,1} end,List)
 	  end,
     Reduce = fun(Key,Values)->
@@ -38,12 +48,14 @@ wc()->
     io:format("Words ~p ~n",[length(SortedResult)]).
 
 dir_wc(Dir,Pattern)->
+%    job_tracker:start(mnesia_job_tracker),
+
     JobTracker = job_tracker:start_link(),
 
     io:format("JobTracker ~p~n",[JobTracker]),
 
-    Map = fun(Data)-> 
-		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"), 
+    Map = fun(Data)->
+		  List = string:tokens(Data, " ();:.,->[]\n\t{}/\\ \"\'|_~=%!-*"),
 		  lists:map(fun(V)-> {V,1} end,List)
 	  end,
     Reduce = fun(Key,Values)->
@@ -54,7 +66,6 @@ dir_wc(Dir,Pattern)->
     Result = task_tracker:mapreduce(Map,Reduce,RecordReaders,JobTracker),
 
     SortedResult = lists:sort(lists:flatten(Result)),
-    
+
     io:format("Words ~p ~n",[length(SortedResult)]).
 
-    

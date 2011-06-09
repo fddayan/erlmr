@@ -26,7 +26,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(JobTracker,ContextPid,ReduceFunction) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ create_reducers(JobTracker,ContextPid,N,ReduceFunction)->
 
 start_reducing(Reducers)->
     lists:foreach(fun(Reducer)-> spawn(fun()-> gen_server:call(Reducer,{reduce}) end) end, Reducers).
-    
+
 gather(0,L,_) -> L;
 gather(N, L,JobTracker) ->
     receive

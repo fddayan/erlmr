@@ -26,7 +26,7 @@ find_mapper_tasks()->
 	{ok, MapperTasks} ->
 	    MapperTasks
     end.
-    
+
 start() ->
   utils:start(?SERVER, {task_tracker_db, run, [true]}).
 

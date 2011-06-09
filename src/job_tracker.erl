@@ -2,7 +2,7 @@
 
 -export([start_link/0,stop/1,loop/0]).
 
-start_link()-> 
+start_link()->
     spawn(?MODULE,loop,[]).
 
 stop(Pid)->
@@ -19,5 +19,4 @@ loop()->
 	    loop();
 	shutdown -> ok
     end.
-    
 

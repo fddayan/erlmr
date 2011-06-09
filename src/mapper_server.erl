@@ -29,7 +29,7 @@ start_mapping(Mappers)->
 
 gather(0,L,_) -> L;
 gather(N,_,JobTracker) ->
-    receive 
+    receive
 	{done}->
 	    reporter:report_progress(JobTracker,"~p maps left",[N-1]),
 	    gather(N-1,[],JobTracker)
@@ -63,22 +63,25 @@ map_task(ContextPid,ReducerPids,MapFunction,RecordReader,JobTracker)->
     reporter:report_progress(JobTracker,"~p Mapping",[self()]),
 
 %    Ts = erlang:now(),
-    RecordsMapped = RecordReader(MapFunction), 
+    RecordsMapped = RecordReader(MapFunction),
     FlattenRecord = lists:flatten(RecordsMapped),
     GroupedByReducerId = utils:tree_group_by(
-			   fun(V)-> 
-				   {Key,Value} =V, 
-				   {erlang:phash(Key, length(ReducerPids)),{Key,Value}} 
+			   fun(V)->
+				   {Key,Value} =V,
+				   {erlang:phash(Key, length(ReducerPids)),{Key,Value}}
 			   end
 			   ,FlattenRecord),
-    MapperPid = self(),	 
+    MapperPid = self(),
 
-    lists:foreach(fun(Index)-> 
+    lists:foreach(fun(Index)->
 			  gen_server:call(lists:nth(Index, ReducerPids),{collect,MapperPid,gb_trees:get(Index,GroupedByReducerId)})
 		  end,gb_trees:keys(GroupedByReducerId)),
     utils:wait_receives(length(gb_trees:keys(GroupedByReducerId)),ok),
 
 %    task_tracker_db:save_mapper_task(MapperPid,Ts,timer:now_diff(erlang:now(),Ts),ContextPid),
 
-    ContextPid ! {done}.
+    spec_test:mapsum([1,2,3,4,5],fun(_)-> b end),
+    
 
+
+    ContextPid ! {done}.
